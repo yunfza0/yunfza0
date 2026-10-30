@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>짱돌깨기 // BLACKOUT PROTOCOL</title>
+<style>
+  :root { color-scheme:dark; --bg:#05070d; --panel:#0b111c; --text:#f3f6fb; --muted:#8392a8; --accent:#ff754a; --ice:#91e8ff; }
+  * { box-sizing:border-box; }
+  body { margin:0; min-height:100vh; display:grid; place-items:center; padding:24px 16px; background:radial-gradient(ellipse at 50% -20%,#26364b 0%,#0a101a 40%,#03050a 78%); color:var(--text); font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif; }
+  body:before { content:""; position:fixed; inset:0; pointer-events:none; opacity:.12; background-image:linear-gradient(#8ba6c014 1px,transparent 1px),linear-gradient(90deg,#8ba6c014 1px,transparent 1px); background-size:44px 44px; mask-image:linear-gradient(to bottom,#000,transparent 78%); }
+  .game { width:min(100%,820px); position:relative; }
+  header { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; margin-bottom:16px; }
+  h1 { margin:3px 0 0; font-size:clamp(2rem,5vw,3rem); line-height:1; letter-spacing:-.075em; font-weight:950; text-transform:uppercase; text-shadow:0 0 26px #ff754a25; }
+  h1 span { color:var(--accent); font-size:.62em; vertical-align:top; text-shadow:0 0 15px #ff754a; }
+  .eyebrow { display:flex; align-items:center; gap:8px; color:#a7b8cd; font-size:.65rem; letter-spacing:.18em; font-weight:800; }
+  .live-dot { width:6px; height:6px; border-radius:50%; background:#ff684b; box-shadow:0 0 10px #ff684b; animation:blink 1.5s infinite; }
+  .eyebrow-line { width:24px; height:1px; background:#53677f; }
+  .sub { color:#8191a6; font-size:.75rem; margin-top:8px; letter-spacing:.16em; font-weight:700; }
+  .stats { display:flex; gap:7px; flex-wrap:wrap; justify-content:flex-end; }
+  .stat { background:linear-gradient(145deg,#131e2b,#090e17); border:1px solid #29394b; border-top-color:#52667b; padding:9px 12px 8px; min-width:82px; text-align:center; position:relative; clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,0 100%); box-shadow:inset 0 1px #ffffff08; }
+  .stat small { display:block; color:#7f94aa; font-size:.57rem; letter-spacing:.12em; font-weight:800; }
+  .stat strong { display:block; margin-top:3px; font-size:1.15rem; font-variant-numeric:tabular-nums; color:#f6f8fb; }
+  .weather-stat strong { color:#91e8ff; font-size:.94rem; white-space:nowrap; }
+  .weather-stat.weather-error strong { color:#ffb19b; font-size:.66rem; white-space:normal; line-height:1.35; max-width:150px; }
+  .frame { position:relative; overflow:hidden; border:1px solid #3b4b5d; border-radius:7px; background:#050810; box-shadow:0 0 0 4px #0a0f18,0 0 0 5px #202d3c,0 24px 80px #000c,0 0 40px #ff754a0b; }
+  .frame:before { content:""; position:absolute; inset:0; pointer-events:none; z-index:1; border:1px solid #c5e4ff0a; background:linear-gradient(135deg,#ffffff06,transparent 22%,transparent 75%,#ff754a08); }
+  canvas { display:block; width:100%; height:auto; touch-action:none; }
+  .overlay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; padding:24px; background:linear-gradient(135deg,#03060bd9,#09101bd9); backdrop-filter:blur(7px); }
+  .overlay.hidden { display:none; }
+  .modal { max-width:390px; width:100%; padding:28px 20px; border:1px solid #52627470; background:linear-gradient(145deg,#111c2ab8,#080c13d9); box-shadow:0 20px 60px #0007,inset 0 1px #ffffff0b; clip-path:polygon(0 0,calc(100% - 18px) 0,100% 18px,100% 100%,18px 100%,0 calc(100% - 18px)); }
+  .modal-kicker { color:var(--accent); font-size:.62rem; letter-spacing:.22em; font-weight:900; margin-bottom:12px; }
+  .modal h2 { margin:0 0 10px; font-size:clamp(1.8rem,5vw,2.5rem); line-height:1.1; letter-spacing:-.06em; font-weight:950; }
+  .modal p { margin:0 0 22px; color:#a8b8ca; line-height:1.8; font-size:.92rem; }
+  button { border:1px solid #ffad8c; border-radius:3px; background:linear-gradient(110deg,#ff5d3d,#ff9b57); color:#170b08; font:inherit; font-weight:950; letter-spacing:.04em; padding:13px 24px; cursor:pointer; box-shadow:0 0 25px #ff754a30,inset 0 1px #fff7; transition:filter .16s,transform .16s,box-shadow .16s; }
+  button:hover { filter:brightness(1.12); transform:translateY(-2px); box-shadow:0 0 32px #ff754a55; }
+  button:active { transform:translateY(0); }
+  .temp-test { display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:7px; margin:0 auto 14px; color:#91a5bb; font-size:.72rem; }
+  .temp-test label { font-weight:800; letter-spacing:.06em; }
+  .temp-test input { width:86px; min-width:0; padding:9px 8px; border:1px solid #52677d; border-radius:3px; background:#070c14; color:#f3f6fb; font:700 .9rem ui-monospace,monospace; text-align:center; }
+  .temp-test input:focus { outline:1px solid #91e8ff; border-color:#91e8ff; }
+  .temp-test button { padding:9px 11px; font-size:.68rem; background:linear-gradient(110deg,#23374a,#111d2b); color:#dff7ff; border-color:#58748b; box-shadow:none; }
+  .weather-briefing { margin:0 auto 18px; padding:10px 12px; max-width:320px; border:1px solid #60758b66; background:linear-gradient(110deg,#101c29d9,#141820d9); color:#e4edf5; font-size:.8rem; font-weight:800; letter-spacing:.02em; box-shadow:inset 0 1px #ffffff0b; }
+  .weather-briefing.hot { border-color:#ff895b88; color:#ffb18b; } .weather-briefing.cold { border-color:#8bdcff88; color:#a9e8ff; } .weather-briefing.mild { border-color:#9dd8b488; color:#bcebc9; }
+  .modal-foot { margin-top:17px; font-size:.6rem; color:#718399; letter-spacing:.15em; font-weight:800; }
+  .controls { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:15px; color:#73849a; font-size:.68rem; letter-spacing:.06em; }
+  .controls b { color:#b8c7d8; font-size:.65rem; letter-spacing:.12em; }
+  .powerup-status { margin-top:13px; min-height:24px; color:#d4e8f5; font-size:.78rem; font-weight:800; text-align:center; letter-spacing:.04em; text-shadow:0 0 12px #5a9fd0; }
+  .mobile { display:none; gap:10px; margin-top:12px; }
+  .mobile button { flex:1; background:linear-gradient(145deg,#152438,#0b111b); color:var(--text); border:1px solid #3c5068; font-size:1.3rem; padding:13px; touch-action:none; box-shadow:none; }
+  @keyframes blink { 0%,100% { opacity:1 } 50% { opacity:.35 } }
+  @media(max-width:620px) { body { padding:16px 10px; } header { align-items:flex-start; flex-direction:column; } .stats { justify-content:flex-start; width:100%; } .stat { flex:1; min-width:0; padding:8px 5px; } .stat small { font-size:.5rem; letter-spacing:.06em; } .controls { align-items:flex-start; flex-direction:column; gap:7px; } .mobile { display:flex; } .sub { font-size:.65rem; letter-spacing:.1em; } }
+
+  /* BLACKOUT PROTOCOL: premium HUD treatment */
+  body:after { content:""; position:fixed; inset:0; pointer-events:none; opacity:.12; background:repeating-linear-gradient(0deg,transparent 0 3px,#b9d9ff12 4px); mix-blend-mode:screen; }
+  .game:after { content:"SECTOR 07  /  NIGHT OPS"; position:absolute; right:0; top:-18px; color:#52657c; font:700 9px ui-monospace,monospace; letter-spacing:.18em; }
+  h1 { text-shadow:0 0 1px #fff,0 0 22px #ff754a38,0 3px 0 #10151f; }
+  .eyebrow { color:#d1d9e4; }
+  .stat { transition:transform .2s,border-color .2s,box-shadow .2s; }
+  .stat:hover { transform:translateY(-2px); border-color:#ff9b70; box-shadow:0 5px 24px #ff754a15; }
+  .frame { isolation:isolate; }
+  .frame:after { content:"REC  ●"; position:absolute; top:12px; right:14px; z-index:2; color:#ff8068; font:800 9px ui-monospace,monospace; letter-spacing:.14em; text-shadow:0 0 10px #ff5d3d; pointer-events:none; }
+  .controls { border-top:1px solid #253243; padding-top:12px; }
+  .powerup-status { font-family:ui-monospace,monospace; letter-spacing:.09em; }
+  @media (prefers-reduced-motion: no-preference) { .frame { animation:framePulse 5s ease-in-out infinite; } @keyframes framePulse { 0%,100% { box-shadow:0 0 0 4px #0a0f18,0 0 0 5px #202d3c,0 24px 80px #000c,0 0 32px #ff754a0a; } 50% { box-shadow:0 0 0 4px #0a0f18,0 0 0 5px #314356,0 24px 80px #000c,0 0 42px #ff754a16; } } }
+</style>
+</head>
+<body>
+<main class="game">
+  <header>
+    <div><div class="eyebrow"><span class="live-dot"></span> BLACKOUT PROTOCOL <span class="eyebrow-line"></span> TOP SECRET</div>
+      <h1>짱돌깨기 <span aria-hidden="true">✦</span></h1><div class="sub">AIR SUPERIORITY // SURVIVE THE NIGHT</div></div>
+    <div class="stats">
+      <div class="stat"><small>MISSION SCORE</small><strong id="score">0</strong></div>
+      <div class="stat weather-stat"><small>SEOUL WEATHER</small><strong id="weatherValue" aria-live="polite">오늘 서울 …°C</strong></div>
+      <div class="stat"><small>HIGH SCORE</small><strong id="bestScore">0</strong></div>
+      <div class="stat"><small>ARMOR</small><strong id="lives">3</strong></div>
+      <div class="stat"><small>SECTOR</small><strong id="level">1</strong></div>
+    </div>
+  </header>
+  <div class="frame">
+    <canvas id="gameCanvas" width="720" height="520" aria-label="벽돌깨기 게임 화면"></canvas>
+    <div class="overlay" id="overlay">
+      <div class="modal"><div class="modal-kicker">BLACKOUT // TACTICAL COMBAT SIMULATION</div><h2 id="overlayTitle">작전 개시</h2><p id="overlayText">적 편대를 전멸시키고 밤하늘을 장악하라.<br>끝까지 살아남는 기체만이 승리한다.</p><div id="weatherBriefing" class="weather-briefing">서울 날씨 확인 중…</div><div class="temp-test"><label for="testTemperature">TEST °C</label><input id="testTemperature" type="number" min="-50" max="60" step="0.1" placeholder="예: 28" inputmode="decimal"><button id="applyTestTemperature" type="button">테스트 기온 적용</button></div><button id="startBtn">출격 개시 <span>↗</span></button><div class="modal-foot">[ SPACE ] START / PAUSE</div></div>
+    </div>
+  </div>
+  <div class="powerup-status" id="powerupStatus">SYSTEM ONLINE // 적 편대 접근 중</div>
+  <div class="controls"><span><b>CONTROLS</b>　← → / MOUSE / TOUCH</span><span><b>SPACE</b>　PAUSE / RESUME</span></div>
+  <div class="mobile"><button id="leftBtn" aria-label="왼쪽으로 이동">←</button><button id="rightBtn" aria-label="오른쪽으로 이동">→</button></div>
+</main>
+<script>
+(() => {
+  const canvas = document.getElementById('gameCanvas');
+  const ctx = canvas.getContext('2d');
+  const scoreEl = document.getElementById('score');
+  const weatherValueEl = document.getElementById('weatherValue');
+  const weatherStatEl = document.querySelector('.weather-stat');
+  let seoulTemperature = null;
+  let weatherMultiplier = 1;
+  let weatherBriefing = '날씨 확인 중 — 기본 속도로 시작합니다.';
+  let manualWeatherMode = false;
+  const bestScoreEl = document.getElementById('bestScore');
+
+  // 서울 기온: Open-Meteo API. file:// 실행 환경에서도 불필요한 요청 헤더를 보내지 않습니다.
+  async function requestWeather(url, timeoutMs = 12000) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(url, { signal: controller.signal, cache: 'no-store' });
+      if (!response.ok) throw new Error(`Weather API HTTP ${response.status}`);
+      return await response.json();
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  async function loadSeoulWeather() {
+    if (manualWeatherMode) return; // 테스트 기온을 적용한 동안에는 실시간 날씨가 덮어쓰지 않음
+    // Prefer the current-conditions field, then fall back to the hourly series.
+    const urls = [
+      'https://api.open-meteo.com/v1/forecast?latitude=37.5665&longitude=126.9780&current=temperature_2m&temperature_unit=celsius&timezone=Asia%2FSeoul',
+      'https://api.open-meteo.com/v1/forecast?latitude=37.5665&longitude=126.9780&hourly=temperature_2m&forecast_days=1&temperature_unit=celsius&timezone=Asia%2FSeoul'
+    ];
+    for (let attempt = 0; attempt < 3; attempt++) {
+      for (const url of urls) {
+        try {
+          const data = await requestWeather(url, 12000);
+          let temperature = data?.current?.temperature_2m;
+          if (typeof temperature !== 'number' || !Number.isFinite(temperature)) {
+            const times = data?.hourly?.time;
+            const temps = data?.hourly?.temperature_2m;
+            if (Array.isArray(times) && Array.isArray(temps) && temps.length) {
+              const now = new Date();
+              const localHour = new Intl.DateTimeFormat('sv-SE', {
+                timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit'
+              }).format(now).replace(' ', 'T').slice(0, 13);
+              let best = 0, bestDiff = Infinity;
+              times.forEach((t, i) => {
+                const diff = Math.abs(new Date(t).getTime() - new Date(localHour + ':00:00').getTime());
+                if (diff < bestDiff && Number.isFinite(temps[i])) { best = i; bestDiff = diff; }
+              });
+              temperature = temps[best];
+            }
+          }
+          if (typeof temperature !== 'number' || !Number.isFinite(temperature)) throw new Error('Temperature unavailable');
+          seoulTemperature = temperature;
+          weatherMultiplier = temperature >= 25 ? 1.28 : (temperature < 10 ? 0.78 : 1);
+          weatherBriefing = temperature >= 25 ? `오늘 서울 ${Math.round(temperature)}°C · 더워서 공이 빨라요!` : (temperature < 10 ? `오늘 서울 ${Math.round(temperature)}°C · 추워서 공이 느려요` : `오늘 서울 ${Math.round(temperature)}°C · 딱 좋은 날씨!`);
+          weatherValueEl.textContent = `오늘 서울 ${Math.round(temperature)}°C`;
+          weatherStatEl.classList.remove('weather-error');
+          if (!running && !gameOver) updateWeatherBriefing();
+          return;
+        } catch (error) {
+          // Try the alternate response format, then retry both endpoints.
+        }
+      }
+      if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+    }
+    seoulTemperature = null;
+    weatherMultiplier = 1;
+    weatherBriefing = '날씨 정보를 불러올 수 없어요 · 기본 속도로 시작합니다.';
+    weatherValueEl.textContent = '날씨 정보를 불러올 수 없어요';
+    weatherStatEl.classList.add('weather-error');
+    if (!running && !gameOver) updateWeatherBriefing();
+  }
+
+  loadSeoulWeather();
+  setInterval(loadSeoulWeather, 10 * 60 * 1000);
+  const livesEl = document.getElementById('lives');
+  const levelEl = document.getElementById('level');
+  const powerupStatus = document.getElementById('powerupStatus');
+  const overlay = document.getElementById('overlay');
+  const overlayTitle = document.getElementById('overlayTitle');
+  const overlayText = document.getElementById('overlayText');
+  const startBtn = document.getElementById('startBtn');
+  const weatherBriefingEl = document.getElementById('weatherBriefing');
+  const testTemperatureInput = document.getElementById('testTemperature');
+  const applyTestTemperatureBtn = document.getElementById('applyTestTemperature');
+  const W = canvas.width, H = canvas.height;
+  const paddle = { w:112, h:22, x:(W-112)/2, y:H-43, speed:7.5 };
+  const ball = { x:W/2, y:H-58, r:8, vx:3.3, vy:-4.2, shape:'bullet', speedBoost:1 };
+  let items = [], obstacles = [], effects = { wide:0, shape:0, fast:0 }, itemMessage='SYSTEM ONLINE // 적 편대 접근 중';
+  let ballWeatherApplied = false;
+  const bomberColor = '#8b9bad';
+  const hardBomberColor = '#d5a7ff';
+  let bricks = [], score = 0, lives = 3, level = 1, running = false, gameOver = false;
+  let bestScore = 0;
+  try { bestScore = Number(localStorage.getItem('brickBreakerBestScore') || 0); } catch(e) { bestScore = 0; }
+  let left = false, right = false, raf = 0, lastTime = 0;
+  const keys = new Set();
+
+  function makeBricks() {
+    bricks = []; items = []; makeObstacles();
+    const cols = 9, rows = Math.min(4 + level, 6), gap = 8, side = 30, top = 58;
+    const bw = (W - side*2 - gap*(cols-1))/cols, bh = 22;
+    for(let r=0;r<rows;r++) for(let c=0;c<cols;c++) {
+      const hard = Math.random() < 0.30;
+      const angle = Math.random() * Math.PI * 2;
+      const drift = 0.35 + Math.random() * 0.8 + Math.min(level*0.08, 0.55);
+      bricks.push({
+        x:side+c*(bw+gap), y:top+r*(bh+gap), w:bw, h:bh,
+        hp:hard ? 2 : 1, maxHp:hard ? 2 : 1, hard,
+        vx:Math.cos(angle)*drift, vy:Math.sin(angle)*drift,
+        color:hard ? hardBomberColor : bomberColor
+      });
+    }
+  }
+  function makeObstacles() {
+    obstacles = [];
+    // Moving planes and birds cross the sky at different heights and speeds.
+    const count = Math.min(2 + Math.floor(level/2), 5);
+    for(let i=0;i<count;i++) {
+      const type = (i%3===2) ? 'bird' : 'plane';
+      const dir = i%2===0 ? 1 : -1;
+      obstacles.push({type, x:dir===1 ? -70-i*120 : W+70+i*100,
+        y:145+i*48, baseY:145+i*48, w:type==='bird'?34:58, h:type==='bird'?22:25,
+        vx:dir*(type==='bird'?2.0+level*.15:1.35+level*.12), phase:i*1.7, hitCooldown:0});
+    }
+  }
+  function resetBall() {
+    ball.x = paddle.x + paddle.w/2; ball.y = paddle.y - ball.r - 2;
+    const speed = (5.2 + (level-1)*.45) * weatherMultiplier * (effects.fast>0 ? 1.45 : 1);
+    ball.vx = (Math.random()>.5?1:-1)*speed*.62; ball.vy = -speed*.78;
+  }
+  function setItemMessage(msg) { itemMessage=msg; powerupStatus.textContent=msg; }
+  function dropItem(x,y) {
+    if(Math.random() > 0.34) return;
+    const types=['life','wide','shape','fast'];
+    const type=types[Math.floor(Math.random()*types.length)];
+    const data={life:['♥','목숨 +1','#ff5d78'],wide:['↔','패들 커짐','#20b8a8'],shape:['✦','탄환 모양 변경','#8b63f6'],fast:['⚡','속도 증가','#ff9c35']}[type];
+    items.push({x:x,y:y,type,icon:data[0],label:data[1],color:data[2],r:13,vy:2.15});
+  }
+  function activateItem(it) {
+    if(it.type==='life') { lives=Math.min(9,lives+1); setItemMessage('♥ 목숨 +1 획득!'); }
+    if(it.type==='wide') { effects.wide=600; paddle.w=Math.min(190,112*1.55); setItemMessage('↔ 패들이 커졌어요!'); }
+    if(it.type==='shape') { effects.shape=600; ball.shape='orb'; setItemMessage('✦ 탄환이 에너지 구체로 변신!'); }
+    if(it.type==='fast') { effects.fast=600; const sp=Math.min(11.5,Math.hypot(ball.vx,ball.vy)*1.35); const a=Math.atan2(ball.vy,ball.vx); ball.vx=Math.cos(a)*sp; ball.vy=Math.sin(a)*sp; setItemMessage('⚡ 공 속도 증가!'); }
+    updateStats();
+  }
+  function updateEffects(step) {
+    for(const k of Object.keys(effects)) if(effects[k]>0) effects[k]=Math.max(0,effects[k]-step);
+    if(effects.wide===0) paddle.w=112;
+    if(effects.shape===0) ball.shape='bullet';
+    if(effects.fast===0) setItemMessage('SYSTEM ONLINE // 적 편대 접근 중');
+  }
+  function updateStats() {
+    if(score > bestScore) {
+      bestScore = score;
+      try { localStorage.setItem('brickBreakerBestScore', String(bestScore)); } catch(e) {}
+    }
+    scoreEl.textContent=score; bestScoreEl.textContent=bestScore;
+    livesEl.textContent=lives; levelEl.textContent=level;
+  }
+  function updateWeatherBriefing() {
+    if (!weatherBriefingEl) return;
+    weatherBriefingEl.textContent = weatherBriefing;
+    weatherBriefingEl.className = 'weather-briefing ' + (seoulTemperature === null ? '' : seoulTemperature >= 25 ? 'hot' : seoulTemperature < 10 ? 'cold' : 'mild');
+  }
+  function showOverlay(title, text, button) {
+    overlayTitle.textContent=title; overlayText.innerHTML=text; startBtn.textContent=button; updateWeatherBriefing(); overlay.classList.remove('hidden');
+  }
+  function hideOverlay(){ overlay.classList.add('hidden'); }
+  function start() {
+    if(gameOver){ score=0; lives=3; level=1; gameOver=false; makeBricks(); updateStats(); }
+    hideOverlay();
+    if (seoulTemperature !== null && !ballWeatherApplied) {
+      const base = Math.hypot(ball.vx, ball.vy);
+      const desired = base * weatherMultiplier;
+      if (base > 0) { ball.vx *= desired/base; ball.vy *= desired/base; }
+      ballWeatherApplied = true;
+    }
+    running=true; lastTime=0; cancelAnimationFrame(raf); raf=requestAnimationFrame(loop);
+  }
+  function pause() {
+    if(!running) return;
+    running=false; cancelAnimationFrame(raf);
+    showOverlay('작전 일시정지', '전장 상황이 정지되었습니다.<br>준비되면 작전을 재개하세요.', '작전 재개');
+  }
+  function drawBackground() {
+    ctx.clearRect(0,0,W,H);
+    const time=performance.now();
+    // War-torn night sky: deep blue-black, smoke, distant fire and searchlights.
+    const g=ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,'#02040b'); g.addColorStop(.48,'#101725'); g.addColorStop(.78,'#29202a'); g.addColorStop(1,'#111522');
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    // Distant orange glow along the horizon.
+    const fire=ctx.createRadialGradient(180,H-105,3,180,H-105,250);
+    fire.addColorStop(0,'#9d452b55'); fire.addColorStop(1,'#6b241000');
+    ctx.fillStyle=fire; ctx.fillRect(0,H-300,W,300);
+    const fire2=ctx.createRadialGradient(590,H-150,2,590,H-150,180);
+    fire2.addColorStop(0,'#c35b2b40'); fire2.addColorStop(1,'#76240000');
+    ctx.fillStyle=fire2; ctx.fillRect(390,H-320,330,320);
+    // Stars and distant flak sparks.
+    let seed=7341;
+    for(let i=0;i<95;i++) {
+      seed=(seed*16807)%2147483647; const x=(seed%10000)/10000*W;
+      seed=(seed*16807)%2147483647; const y=(seed%10000)/10000*(H*.72);
+      ctx.globalAlpha=.2+(i%5)*.09; ctx.fillStyle=i%11===0?'#ffb36b':'#dce7ff';
+      ctx.beginPath(); ctx.arc(x,y,i%13===0?1.4:.5+(i%3)*.2,0,Math.PI*2); ctx.fill();
+    }
+    ctx.globalAlpha=1;
+    // Rolling smoke banks.
+    function smoke(x,y,scale,alpha) {
+      ctx.save(); ctx.globalAlpha=alpha; ctx.fillStyle='#657080'; ctx.filter='blur(10px)';
+      ctx.beginPath(); ctx.ellipse(x,y,60*scale,17*scale,-.08,0,Math.PI*2);
+      ctx.ellipse(x-28*scale,y-8*scale,34*scale,22*scale,.2,0,Math.PI*2);
+      ctx.ellipse(x+14*scale,y-15*scale,39*scale,25*scale,-.1,0,Math.PI*2);
+      ctx.ellipse(x+48*scale,y-3*scale,31*scale,18*scale,.1,0,Math.PI*2); ctx.fill(); ctx.restore();
+    }
+    smoke(90,165,1.25,.16); smoke(330,285,1.35,.14); smoke(610,220,1.4,.16); smoke(470,390,1.8,.12);
+    // Searchlights sweep through the clouds.
+    for(let i=0;i<2;i++) {
+      const sx=i===0?90:W-75, ang=Math.sin(time/1700+i*2.2)*.42+(i===0?.18:-.2);
+      ctx.save(); ctx.translate(sx,H-35); ctx.rotate(ang);
+      const beam=ctx.createLinearGradient(0,0,0,-H*.82);
+      beam.addColorStop(0,'#b6d8ff18'); beam.addColorStop(.55,'#91b9ff0b'); beam.addColorStop(1,'#91b9ff00');
+      ctx.fillStyle=beam; ctx.beginPath(); ctx.moveTo(-5,0); ctx.lineTo(-75,-H*.82); ctx.lineTo(75,-H*.82); ctx.lineTo(5,0); ctx.closePath(); ctx.fill(); ctx.restore();
+    }
+    // Distant jagged skyline and burning structures.
+    ctx.fillStyle='#080b12'; ctx.beginPath(); ctx.moveTo(0,H-52);
+    const skyline=[[0,H-70],[35,H-68],[35,H-96],[50,H-96],[50,H-61],[82,H-61],[82,H-83],[100,H-83],[100,H-54],[145,H-54],[145,H-78],[164,H-78],[164,H-48],[215,H-48],[215,H-68],[235,H-68],[235,H-57],[285,H-57],[285,H-88],[301,H-88],[301,H-55],[345,H-55],[345,H-73],[372,H-73],[372,H-49],[430,H-49],[430,H-80],[447,H-80],[447,H-59],[490,H-59],[490,H-94],[508,H-94],[508,H-55],[548,H-55],[548,H-75],[566,H-75],[566,H-50],[620,H-50],[620,H-87],[639,H-87],[639,H-58],[680,H-58],[680,H-75],[700,H-75],[700,H-53],[720,H-53]];
+    for(const pt of skyline) ctx.lineTo(pt[0],pt[1]); ctx.lineTo(W,H); ctx.closePath(); ctx.fill();
+    // Flickering fire spots and brief tracer streaks add a battlefield atmosphere.
+    for(let i=0;i<5;i++) {
+      const x=55+i*143, y=H-64-(i%3)*12;
+      const pulse=.55+.45*Math.sin(time/180+i*1.7);
+      ctx.globalAlpha=.25+pulse*.45; ctx.fillStyle=i%2?'#ffb04b':'#ff6a32';
+      ctx.beginPath(); ctx.ellipse(x,y,3+pulse*3,8+pulse*5,-.2,0,Math.PI*2); ctx.fill();
+      ctx.globalAlpha=.7; ctx.strokeStyle=i%2?'#ff8c4c':'#ffcf78'; ctx.lineWidth=1.3;
+      const tx=((time*.23+i*157)% (W+80))-40, ty=60+i*51;
+      ctx.beginPath(); ctx.moveTo(tx,ty); ctx.lineTo(tx-24,ty+8); ctx.stroke();
+    }
+    ctx.globalAlpha=1;
+    // Atmospheric lens vignette and drifting ash specks add depth without external image assets.
+    const vignette=ctx.createRadialGradient(W*.5,H*.42,100,W*.5,H*.42,W*.78);
+    vignette.addColorStop(.45,'#00000000'); vignette.addColorStop(1,'#00030a99'); ctx.fillStyle=vignette; ctx.fillRect(0,0,W,H);
+    for(let i=0;i<38;i++){ const ax=((i*97+time*.012*(i%3+1))%(W+20))-10; const ay=(i*61+time*.018*(i%4+1))%H; ctx.globalAlpha=.08+(i%4)*.025; ctx.fillStyle=i%7===0?'#ff9b66':'#d4dce5'; ctx.fillRect(ax,ay,i%6===0?2:1,i%6===0?2:1); } ctx.globalAlpha=1;
+  }
+  function roundedRect(x,y,w,h,r) {
+    ctx.beginPath(); ctx.roundRect(x,y,w,h,r);
+  }
+  function drawBomber(b) {
+    // Top-down, stylized flying-wing silhouette inspired by the B-2 shape.
+    const x=b.x, y=b.y, w=b.w, h=b.h;
+    ctx.save();
+    ctx.translate(x+w/2,y+h/2);
+    ctx.scale(w/2,h/2);
+    ctx.shadowColor=b.hard?'#b878ff':'#7f9ab8'; ctx.shadowBlur=b.hard?10:5;
+    ctx.beginPath();
+    ctx.moveTo(-1,-0.48);
+    ctx.lineTo(-0.18,-0.12);
+    ctx.lineTo(0.00,-0.02);
+    ctx.lineTo(0.18,-0.12);
+    ctx.lineTo(1,-0.48);
+    ctx.lineTo(0.72,0.04);
+    ctx.lineTo(0.46,0.28);
+    ctx.lineTo(0.22,0.16);
+    ctx.lineTo(0.10,0.48);
+    ctx.lineTo(-0.10,0.48);
+    ctx.lineTo(-0.22,0.16);
+    ctx.lineTo(-0.46,0.28);
+    ctx.lineTo(-0.72,0.04);
+    ctx.closePath();
+    const shade=ctx.createLinearGradient(-.7,-.5,.65,.55);
+    shade.addColorStop(0,b.hard?'#c5a4e8':'#aeb8c0'); shade.addColorStop(.22,b.color); shade.addColorStop(.53,b.hard?'#62516f':'#56616b'); shade.addColorStop(.78,b.hard?'#40364c':'#303a44'); shade.addColorStop(1,b.hard?'#1e1b2b':'#151c24');
+    ctx.fillStyle=shade; ctx.fill();
+    ctx.shadowBlur=0;
+    ctx.strokeStyle=b.hard?'#f0dfff':'#c4d2e3a0'; ctx.lineWidth=.035; ctx.stroke();
+    // Subtle central spine and wing facets.
+    ctx.beginPath(); ctx.moveTo(0,-.32); ctx.lineTo(0,.38);
+    ctx.moveTo(-.65,.02); ctx.lineTo(-.18,.02); ctx.lineTo(-.08,.18);
+    ctx.moveTo(.65,.02); ctx.lineTo(.18,.02); ctx.lineTo(.08,.18);
+    ctx.strokeStyle=b.hard?'#e2caffb0':'#b9c8d980'; ctx.lineWidth=.025; ctx.stroke();
+    // Fine panel seams, leading-edge highlights and dark engine vents for a more photographic metal finish.
+    ctx.beginPath(); ctx.moveTo(-.76,-.25); ctx.lineTo(-.28,-.04); ctx.lineTo(-.13,.09); ctx.moveTo(.76,-.25); ctx.lineTo(.28,-.04); ctx.lineTo(.13,.09);
+    ctx.moveTo(-.42,.20); ctx.lineTo(-.20,.28); ctx.moveTo(.42,.20); ctx.lineTo(.20,.28);
+    ctx.strokeStyle='#d8e0e955'; ctx.lineWidth=.018; ctx.stroke();
+    ctx.fillStyle='#111820'; ctx.fillRect(-.13,.23,.08,.12); ctx.fillRect(.05,.23,.08,.12);
+    ctx.restore();
+  }
+  function drawObstacle(o, time) {
+    ctx.save(); ctx.translate(o.x,o.y);
+    // Low-contrast distant silhouettes with metallic highlights, matching the realistic night combat scene.
+    if(o.type==='bird') {
+      const flap=Math.sin(time/110+o.phase)*5;
+      ctx.strokeStyle='#9aa9b633'; ctx.lineWidth=2.2; ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(-13,3); ctx.quadraticCurveTo(-7,-flap-7,0,1);
+      ctx.quadraticCurveTo(7,-flap-7,13,3); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(13,3); ctx.lineTo(19,0); ctx.lineTo(14,7); ctx.stroke();
+      ctx.fillStyle='#66727d66'; ctx.beginPath(); ctx.ellipse(0,2,4.5,2.2,0,0,Math.PI*2); ctx.fill();
+    } else {
+      const metal=ctx.createLinearGradient(0,-o.h*.5,0,o.h*.5); metal.addColorStop(0,'#c2ccd255'); metal.addColorStop(.4,'#526170aa'); metal.addColorStop(1,'#111a24dd'); ctx.fillStyle=metal; ctx.strokeStyle='#c8d6e044'; ctx.lineWidth=.8;
+      ctx.beginPath(); ctx.moveTo(-o.w*.48,-2); ctx.lineTo(-o.w*.12,-5); ctx.lineTo(-o.w*.02,-o.h*.48);
+      ctx.lineTo(o.w*.08,-o.h*.48); ctx.lineTo(o.w*.18,-4); ctx.lineTo(o.w*.48,-2);
+      ctx.lineTo(o.w*.28,3); ctx.lineTo(o.w*.08,2); ctx.lineTo(0,o.h*.43);
+      ctx.lineTo(-o.w*.08,2); ctx.lineTo(-o.w*.28,3); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-o.w*.1,-1); ctx.lineTo(o.w*.12,-1); ctx.strokeStyle='#b9d9ee'; ctx.stroke();
+    }
+    ctx.restore();
+  }
+  function draw() {
+    drawBackground();
+    bricks.forEach(b=>{
+      // Damaged two-hit bombers flash warm and show their remaining durability.
+      if(b.hp===1 && b.maxHp===2) {
+        ctx.save(); ctx.strokeStyle='#ff9b45'; ctx.lineWidth=2;
+        ctx.beginPath(); ctx.arc(b.x+b.w/2,b.y+b.h/2,Math.max(b.w,b.h)*.48,0,Math.PI*2); ctx.stroke(); ctx.restore();
+      }
+      drawBomber(b);
+      if(b.maxHp===2) {
+        ctx.save(); ctx.font='bold 10px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillStyle=b.hp===2?'#fff4b8':'#ff7b43';
+        ctx.fillText(b.hp===2?'Ⅱ':'Ⅰ',b.x+b.w/2,b.y+b.h/2+1); ctx.restore();
+      }
+    });
+    obstacles.forEach(o=>drawObstacle(o, performance.now()));
+    // Player paddle becomes a compact stealth-bomber silhouette, nose pointing upward.
+    ctx.save(); ctx.translate(paddle.x+paddle.w/2,paddle.y+paddle.h/2);
+    ctx.scale(paddle.w/2,paddle.h/2); ctx.shadowColor='#ff8547'; ctx.shadowBlur=12;
+    ctx.beginPath();
+    ctx.moveTo(0,-1); ctx.lineTo(.20,-.30); ctx.lineTo(1,-.62);
+    ctx.lineTo(.76,.18); ctx.lineTo(.48,.55); ctx.lineTo(.20,.36);
+    ctx.lineTo(.10,1); ctx.lineTo(-.10,1); ctx.lineTo(-.20,.36);
+    ctx.lineTo(-.48,.55); ctx.lineTo(-.76,.18); ctx.lineTo(-1,-.62);
+    ctx.lineTo(-.20,-.30); ctx.closePath();
+    const pg=ctx.createLinearGradient(0,-1,0,1);
+    pg.addColorStop(0,'#e8edf2'); pg.addColorStop(.38,'#8796a7'); pg.addColorStop(1,'#394858');
+    ctx.fillStyle=pg; ctx.fill(); ctx.shadowBlur=0;
+    ctx.strokeStyle='#ffb36a'; ctx.lineWidth=.035; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,-.55); ctx.lineTo(0,.70); ctx.moveTo(-.65,-.02); ctx.lineTo(-.18,.12); ctx.moveTo(.65,-.02); ctx.lineTo(.18,.12);
+    ctx.strokeStyle='#d9e2ec'; ctx.lineWidth=.025; ctx.stroke();
+    // Twin afterburners and a targeting beacon make the player craft pop.
+    ctx.shadowColor='#ff633b'; ctx.shadowBlur=.9; ctx.fillStyle='#ff8a55';
+    ctx.beginPath(); ctx.ellipse(-.28,.43,.055,.12,0,0,Math.PI*2); ctx.ellipse(.28,.43,.055,.12,0,0,Math.PI*2); ctx.fill();
+    ctx.shadowBlur=0; ctx.fillStyle='#b9f3ff'; ctx.beginPath(); ctx.arc(0,-.18,.035,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+    // Projectile changes into a glowing energy orb when the shape item is active.
+    if(ball.shape==='orb') {
+      ctx.save(); ctx.shadowColor='#8b63f6'; ctx.shadowBlur=22;
+      const orb=ctx.createRadialGradient(ball.x-3,ball.y-3,1,ball.x,ball.y,ball.r*1.6);
+      orb.addColorStop(0,'#ffffff'); orb.addColorStop(.35,'#d8caff'); orb.addColorStop(1,'#7547e8');
+      ctx.beginPath(); ctx.arc(ball.x,ball.y,ball.r*1.45,0,Math.PI*2); ctx.fillStyle=orb; ctx.fill();
+      ctx.strokeStyle='#ffffffcc'; ctx.lineWidth=2; ctx.stroke(); ctx.restore();
+    } else {
+    ctx.save(); ctx.translate(ball.x,ball.y); ctx.rotate(Math.atan2(ball.vy,ball.vx));
+    ctx.shadowColor='#ffb347'; ctx.shadowBlur=13;
+    const len=ball.r*2.8, thick=ball.r*1.05;
+    ctx.beginPath();
+    ctx.moveTo(len*.62,0); ctx.lineTo(len*.12,-thick*.52);
+    ctx.lineTo(-len*.42,-thick*.52); ctx.lineTo(-len*.55,-thick*.25);
+    ctx.lineTo(-len*.55,thick*.25); ctx.lineTo(-len*.42,thick*.52);
+    ctx.lineTo(len*.12,thick*.52); ctx.closePath();
+    const bullet=ctx.createLinearGradient(0,-thick,0,thick);
+    bullet.addColorStop(0,'#fff6c9'); bullet.addColorStop(.42,'#ffcc62'); bullet.addColorStop(1,'#ed7b22');
+    ctx.fillStyle=bullet; ctx.fill();
+    ctx.strokeStyle='#fff8dc'; ctx.lineWidth=1; ctx.stroke();
+    // Small tail band for a clear bullet silhouette.
+    ctx.fillStyle='#fff1bd'; ctx.fillRect(-len*.30,-thick*.52,len*.10,thick*1.04);
+    ctx.restore(); }
+    // Falling collectible power-ups.
+    items.forEach(it=>{ ctx.save(); ctx.shadowColor=it.color; ctx.shadowBlur=12;
+      ctx.beginPath(); ctx.arc(it.x,it.y,it.r,0,Math.PI*2); ctx.fillStyle='#ffffffed'; ctx.fill();
+      ctx.lineWidth=3; ctx.strokeStyle=it.color; ctx.stroke(); ctx.shadowBlur=0;
+      ctx.fillStyle=it.color; ctx.font='bold 17px system-ui'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(it.icon,it.x,it.y+1); ctx.restore(); });
+  }
+  function update(dt) {
+    const step = Math.min(dt/16.67,2);
+    updateEffects(step);
+    if(left || keys.has('ArrowLeft')) paddle.x -= paddle.speed*step;
+    if(right || keys.has('ArrowRight')) paddle.x += paddle.speed*step;
+    paddle.x=Math.max(8,Math.min(W-paddle.w-8,paddle.x));
+    // Every bomber drifts in a random direction and bounces within the sky area.
+    for(const b of bricks) {
+      b.x += b.vx*step; b.y += b.vy*step;
+      if(b.x < 10) { b.x=10; b.vx=Math.abs(b.vx); }
+      if(b.x+b.w > W-10) { b.x=W-10-b.w; b.vx=-Math.abs(b.vx); }
+      if(b.y < 48) { b.y=48; b.vy=Math.abs(b.vy); }
+      if(b.y+b.h > 335) { b.y=335-b.h; b.vy=-Math.abs(b.vy); }
+    }
+    ball.x += ball.vx*step; ball.y += ball.vy*step;
+    if(ball.x-ball.r<0){ball.x=ball.r;ball.vx=Math.abs(ball.vx);}
+    if(ball.x+ball.r>W){ball.x=W-ball.r;ball.vx=-Math.abs(ball.vx);}
+    if(ball.y-ball.r<0){ball.y=ball.r;ball.vy=Math.abs(ball.vy);}
+    // Moving aircraft and birds drift across the playfield. Touching one deflects the projectile.
+    for(const o of obstacles) {
+      o.x += o.vx*step;
+      o.y = o.baseY + Math.sin((performance.now()/520)+o.phase)*13;
+      if(o.x < -100) o.x = W+80;
+      if(o.x > W+100) o.x = -80;
+      if(o.hitCooldown>0) o.hitCooldown-=step;
+      const dx=ball.x-o.x, dy=ball.y-o.y;
+      const rx=o.w*.42+ball.r, ry=o.h*.48+ball.r;
+      if(o.hitCooldown<=0 && (dx*dx)/(rx*rx)+(dy*dy)/(ry*ry)<1) {
+        if(Math.abs(dx/rx)>Math.abs(dy/ry)) ball.vx = Math.abs(ball.vx)*(dx>=0?1:-1);
+        else ball.vy = Math.abs(ball.vy)*(dy>=0?1:-1);
+        // Ensure the ball is pushed clear so it cannot become trapped in an obstacle.
+        ball.x += Math.sign(dx||1)*3; ball.y += Math.sign(dy||1)*3;
+        o.hitCooldown=14;
+      }
+    }
+    if(ball.vy>0 && ball.y+ball.r>=paddle.y && ball.y-ball.r<=paddle.y+paddle.h &&
+       ball.x>=paddle.x-2 && ball.x<=paddle.x+paddle.w+2) {
+      ball.y=paddle.y-ball.r;
+      const hit=(ball.x-(paddle.x+paddle.w/2))/(paddle.w/2);
+      const speed=Math.min(11.5,Math.hypot(ball.vx,ball.vy)+.12);
+      const angle=hit*1.05;
+      ball.vx=speed*Math.sin(angle); ball.vy=-Math.abs(speed*Math.cos(angle));
+    }
+    for(let i=bricks.length-1;i>=0;i--){
+      const b=bricks[i];
+      if(ball.x+ball.r>b.x && ball.x-ball.r<b.x+b.w && ball.y+ball.r>b.y && ball.y-ball.r<b.y+b.h){
+        const prevX=ball.x-ball.vx*step, prevY=ball.y-ball.vy*step;
+        if(prevY+ball.r<=b.y || prevY-ball.r>=b.y+b.h) ball.vy*=-1; else ball.vx*=-1;
+        b.hp--;
+        // Breaking a target nudges the ball faster; the next stage is faster still.
+        if(b.hp<=0) {
+          bricks.splice(i,1); score+=15; dropItem(b.x+b.w/2,b.y+b.h/2);
+          const speed=Math.min(12.5,Math.hypot(ball.vx,ball.vy)*1.025);
+          const a=Math.atan2(ball.vy,ball.vx); ball.vx=Math.cos(a)*speed; ball.vy=Math.sin(a)*speed;
+        } else {
+          score+=5;
+          b.vx*=1.08; b.vy*=1.08;
+        }
+        updateStats(); break;
+      }
+    }
+    for(let i=items.length-1;i>=0;i--) {
+      const it=items[i]; it.y+=it.vy*step;
+      if(it.y+it.r>=paddle.y && it.y-it.r<=paddle.y+paddle.h && it.x>=paddle.x && it.x<=paddle.x+paddle.w) { activateItem(it); items.splice(i,1); }
+      else if(it.y-it.r>H) items.splice(i,1);
+    }
+    if(ball.y-ball.r>H){
+      lives--; updateStats();
+      if(lives<=0){running=false;gameOver=true;showOverlay('임무 실패',`최종 점수 <strong>${score}</strong>점<br>재정비 후 다시 출격하라.`,'재출격');return;}
+      resetBall();
+    }
+    if(bricks.length===0){
+      level++; updateStats(); makeBricks(); resetBall();
+      const faster = Math.min(12.5, Math.hypot(ball.vx,ball.vy) * 1.22);
+      const angle = Math.atan2(ball.vy,ball.vx);
+      ball.vx = Math.cos(angle)*faster; ball.vy = Math.sin(angle)*faster;
+      setItemMessage(`LEVEL ${level}! 다음 단계는 더 빨라요!`);
+    }
+  }
+  function loop(t) {
+    if(!running)return;
+    const dt=lastTime ? t-lastTime : 16.67; lastTime=t;
+    update(dt); draw();
+    if(running) raf=requestAnimationFrame(loop);
+  }
+  function pointerMove(e) {
+    const rect=canvas.getBoundingClientRect();
+    const x=(e.clientX-rect.left)/rect.width*W;
+    paddle.x=Math.max(8,Math.min(W-paddle.w-8,x-paddle.w/2));
+  }
+  canvas.addEventListener('pointermove',pointerMove);
+  canvas.addEventListener('pointerdown',e=>{pointerMove(e); if(!running && !gameOver && overlay.classList.contains('hidden')===false) start();});
+  window.addEventListener('keydown',e=>{
+    if(['ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault();
+    keys.add(e.key);
+    if(e.key===' '){ if(running)pause(); else start(); }
+  });
+  window.addEventListener('keyup',e=>keys.delete(e.key));
+  function holdButton(id,dir) {
+    const el=document.getElementById(id);
+    const on=e=>{e.preventDefault(); if(dir==='left')left=true;else right=true;};
+    const off=e=>{e.preventDefault();left=false;right=false;};
+    el.addEventListener('pointerdown',on); el.addEventListener('pointerup',off);
+    el.addEventListener('pointerleave',off); el.addEventListener('pointercancel',off);
+  }
+  holdButton('leftBtn','left'); holdButton('rightBtn','right');
+  applyTestTemperatureBtn.addEventListener('click', () => {
+    const value = Number(testTemperatureInput.value);
+    if (testTemperatureInput.value.trim() === '' || !Number.isFinite(value) || value < -50 || value > 60) {
+      testTemperatureInput.setCustomValidity('기온을 -50°C에서 60°C 사이로 입력해 주세요.');
+      testTemperatureInput.reportValidity();
+      return;
+    }
+    testTemperatureInput.setCustomValidity('');
+    manualWeatherMode = true;
+    seoulTemperature = value;
+    weatherMultiplier = value >= 25 ? 1.28 : (value < 10 ? 0.78 : 1);
+    weatherBriefing = value >= 25 ? `테스트 기온 ${value}°C · 더워서 공이 빨라요!` : (value < 10 ? `테스트 기온 ${value}°C · 추워서 공이 느려요` : `테스트 기온 ${value}°C · 딱 좋은 날씨!`);
+    weatherValueEl.textContent = `테스트 ${value}°C`;
+    weatherStatEl.classList.remove('weather-error');
+    ballWeatherApplied = false;
+    updateWeatherBriefing();
+    powerupStatus.textContent = 'TEST WEATHER APPLIED // 출격하면 속도 효과 적용';
+  });
+  startBtn.addEventListener('click',start);
+  makeBricks(); resetBall(); draw(); updateStats();
+})();
+</script>
+</body>
+</html>
